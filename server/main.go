@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"zestron-server/handlers"
+	"zestron-server/services"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -13,6 +14,8 @@ func main() {
 	if err := godotenv.Load(); err != nil {
 		panic("Error loading .env file")
 	}
+
+	chatManager := services.NewChatManager()
 
 	router := gin.New()
 	router.Use(gin.Logger())
@@ -39,7 +42,7 @@ func main() {
 		})
 	})
 
-	router.POST("/api/generate", handlers.GenerateHandler)
+	router.GET("/ws/generate", handlers.WebSocketHandler(chatManager))
 
 	router.Run(":8080")
 }
