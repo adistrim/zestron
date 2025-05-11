@@ -7,7 +7,7 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-func CallLLM_API(prompt string) (string, error) {
+func CallLLM_API(prompt string, history []models.Message) (string, error) {
 	client := resty.New()
 
 	var result models.GenerateResponse
@@ -16,21 +16,33 @@ func CallLLM_API(prompt string) (string, error) {
 	Your response must contain only the information necessary to fully address the user's request. Do not add any extra details,
 	explanations, conversational elements, or creative content. Be accurate, concise, and professional while prioritizing extreme brevity.`
 
+	messages := []any{
+		map[string]string{
+			"role":    "system",
+			"content": systemPrompt,
+		},
+	}
+
+	if history != nil {
+		for _, msg := range history {
+			messages = append(messages, map[string]string{
+				"role":    msg.Role,
+				"content": msg.Content,
+			})
+		}
+	}
+
+	messages = append(messages, map[string]string{
+		"role":    "user",
+		"content": prompt,
+	})
+
 	resp, err := client.R().
 		SetHeader("Authorization", "Bearer "+os.Getenv("KEY")).
 		SetHeader("Content-Type", "application/json").
 		SetBody(map[string]any{
-			"model": "deepseek-chat",
-			"messages": []any{
-				map[string]string{
-					"role":    "system",
-					"content": systemPrompt,
-				},
-				map[string]string{
-					"role":    "user",
-					"content": prompt,
-				},
-			},
+			"model":    "deepseek-chat",
+			"messages": messages,
 		}).
 		SetResult(&result).
 		Post("https://api.deepseek.com/chat/completions")
