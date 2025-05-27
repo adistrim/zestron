@@ -1,4 +1,4 @@
-<footer class="py-3 bg-gradient-to-r from-indigo-50 via-blue-50 to-indigo-50 border-t border-indigo-100">
+<footer class="py-3 bg-gradient-to-r from-indigo-50 via-blue-50 to-indigo-50">
     <div class="container mx-auto flex flex-col items-center justify-center">
         <div class="text-sm text-gray-600 text-center">
             <p>
