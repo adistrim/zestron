@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"zestron-server/models"
 	"zestron-server/services"
 
@@ -11,20 +12,30 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		// allowing all origins for now
-		return true
-	},
-}
+func WebSocketHandler(chatManager *services.ChatManager, allowedOrigins []string) gin.HandlerFunc {
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				return false
+			}
 
-func WebSocketHandler(chatManager *services.ChatManager) gin.HandlerFunc {
+			for _, allowed := range allowedOrigins {
+				if origin == strings.TrimSpace(allowed) {
+					return true
+				}
+			}
+
+			return false
+		},
+	}
+
 	return func(c *gin.Context) {
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
-			log.Printf("Failed to upgrade connection: %v", err)
+			log.Printf("Error upgrading to WebSocket: %v", err)
 			return
 		}
 		defer conn.Close()
