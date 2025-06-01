@@ -1,58 +1,43 @@
 package services
 
 import (
+	"context"
 	"os"
 	"zestron-server/models"
 
-	"github.com/go-resty/resty/v2"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 )
 
 func CallLLM_API(prompt string, history []models.Message) (string, error) {
-	client := resty.New()
-
-	var result models.GenerateResponse
-
 	systemPrompt := `You are a helpful assistant. Respond to the user's query directly and completely using the fewest possible words.
-	Your response must contain only the information necessary to fully address the user's request. Do not add any extra details,
-	explanations, conversational elements, or creative content. Be accurate, concise, and professional while prioritizing extreme brevity.`
+Your response must contain only the information necessary to fully address the user's request. Do not add any extra details,
+explanations, conversational elements, or creative content. Be accurate, concise, and professional while prioritizing extreme brevity.`
 
-	messages := []any{
-		map[string]string{
-			"role":    "system",
-			"content": systemPrompt,
-		},
+	messages := []openai.ChatCompletionMessageParamUnion{
+		openai.SystemMessage(systemPrompt),
 	}
-
-	if history != nil {
-		for _, msg := range history {
-			messages = append(messages, map[string]string{
-				"role":    msg.Role,
-				"content": msg.Content,
-			})
+	for _, msg := range history {
+		switch msg.Role {
+		case "user":
+			messages = append(messages, openai.UserMessage(msg.Content))
+		case "assistant":
+			messages = append(messages, openai.AssistantMessage(msg.Content))
 		}
 	}
+	messages = append(messages, openai.UserMessage(prompt))
 
-	messages = append(messages, map[string]string{
-		"role":    "user",
-		"content": prompt,
+	client := openai.NewClient(
+		option.WithAPIKey(os.Getenv("KEY")),
+		option.WithBaseURL("https://api.deepseek.com"),
+	)
+
+	chatCompletion, err := client.Chat.Completions.New(context.TODO(), openai.ChatCompletionNewParams{
+		Messages: messages,
+		Model:    "deepseek-chat",
 	})
-
-	resp, err := client.R().
-		SetHeader("Authorization", "Bearer "+os.Getenv("KEY")).
-		SetHeader("Content-Type", "application/json").
-		SetBody(map[string]any{
-			"model":    "deepseek-chat",
-			"messages": messages,
-		}).
-		SetResult(&result).
-		Post("https://api.deepseek.com/chat/completions")
-
-	if err != nil || resp.IsError() {
+	if err != nil {
 		return "", err
 	}
-
-	if len(result.Choices) > 0 {
-		return result.Choices[0].Message.Content, nil
-	}
-	return "", nil
+	return chatCompletion.Choices[0].Message.Content, nil
 }
